@@ -1,0 +1,80 @@
+diff --git a/panel-plugin/weather-data.c b/panel-plugin/weather-data.c
+index 2662c95..817edc1 100644
+--- a/panel-plugin/weather-data.c
++++ b/panel-plugin/weather-data.c
+@@ -42,16 +42,15 @@
+ 
+ #define CHK_NULL(s) ((s) ? g_strdup(s) : g_strdup(""))
+ 
+-#define ROUND_TO_INT(default_format) (round ? "%.0f" : default_format)
++#define ROUND_TO_INT(default_format) (roundval ? "%.0f" : default_format)
+ 
+-/* Converts temperatures in Celcius to Fahrenheit while preventing
+- * negative values rounded to zero from being displayed as "-0 °F". */
+-#define CALC_FAHRENHEIT(round, temperature)              \
+-do {                                                     \
+-    temperature = temperature * 9.0 / 5.0 + 32;          \
+-    if (round && temperature > -0.5 && temperature < 0)  \
+-        temperature = 0;                                 \
+-} while (0)
++#define ROUND_DOUBLE(roundval, val)                          \
++    (roundval ? (                                            \
++        (round(val) == 0) ? 0.0 : round(val)                 \
++    ) : val)
++
++/* Converts temperatures in Celcius to Fahrenheit */
++#define CALC_FAHRENHEIT(temperature) (temperature = temperature * 9.0 / 5.0 + 32)
+ 
+ #define LOCALE_DOUBLE(value, format)                        \
+     (value                                                  \
+@@ -79,7 +78,6 @@ typedef struct {
+     GArray *after;
+ } point_data_results;
+ 
+-
+ /* convert string to a double value, returning backup value on error */
+ gdouble
+ string_to_double(const gchar *str,
+@@ -321,7 +319,7 @@ gchar *
+ get_data(const xml_time *timeslice,
+          const units_config *units,
+          const data_types type,
+-         const gboolean round,
++         const gboolean roundval,
+          const gboolean night_time)
+ {
+     const xml_location *loc = NULL;
+@@ -354,8 +352,9 @@ get_data(const xml_time *timeslice,
+     case TEMPERATURE:      /* source is in °C */
+         val = string_to_double(loc->temperature_value, 0);
+         if (units->temperature == FAHRENHEIT)
+-            CALC_FAHRENHEIT(round, val);
+-        return g_strdup_printf(ROUND_TO_INT("%.1f"), val);
++            CALC_FAHRENHEIT(val);
++
++     return g_strdup_printf(ROUND_TO_INT("%.1f"), ROUND_DOUBLE(roundval, val));
+ 
+     case PRESSURE:         /* source is in hectopascals */
+         val = string_to_double(loc->pressure_value, 0);
+@@ -408,15 +407,17 @@ get_data(const xml_time *timeslice,
+         if (val == INVALID_VALUE)
+             return g_strdup("");
+         if (units->temperature == FAHRENHEIT)
+-            CALC_FAHRENHEIT(round, val);
+-        return g_strdup_printf(ROUND_TO_INT("%.1f"), val);
++            CALC_FAHRENHEIT(val);
++
++        return g_strdup_printf(ROUND_TO_INT("%.1f"), ROUND_DOUBLE(roundval, val));
+ 
+     case APPARENT_TEMPERATURE:
+         val = calc_apparent_temperature(loc, units->apparent_temperature,
+                                         night_time);
+         if (units->temperature == FAHRENHEIT)
+-            CALC_FAHRENHEIT(round, val);
+-        return g_strdup_printf(ROUND_TO_INT("%.1f"), val);
++            CALC_FAHRENHEIT(val);
++
++        return g_strdup_printf(ROUND_TO_INT("%.1f"), ROUND_DOUBLE(roundval, val));
+ 
+     case CLOUDS_LOW:
+         return LOCALE_DOUBLE(loc->clouds_percent[CLOUDS_PERC_LOW],
